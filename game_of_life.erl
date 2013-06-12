@@ -2,11 +2,7 @@
 -export([start/0, start/2]).
 
 -define(STATE, [{0, 0}, {0, 1}, {1, 0}, {1, 1}]). 
--define(MOVES, fun() ->
-            lists:filter(fun({0, 0}) -> false;
-                            (_) -> true
-                end, [{DX, DY} || DX <- [-1, 0, 1], DY <- [-1, 0, 1]])
-    end).
+-define(MOVES, [{DX, DY} || DX <- [-1, 0, 1], DY <- [-1, 0, 1], DX =/= 0 orelse DY =/= 0]).
 
 start() ->
     loop(?STATE, 100).
@@ -27,7 +23,7 @@ neighbours({X, Y}, State) ->
                     true -> Acc + 1;
                     false -> Acc + 0
                 end
-        end, 0, ?MOVES()).
+        end, 0, ?MOVES).
 
 %% @private
 next_cell_state({X, Y}, State) ->
@@ -44,7 +40,7 @@ next_cell_state({X, Y}, State) ->
 
 %% @private
 tick(State) ->
-    print_and_run(fun() ->
+    print_and_return(fun() ->
                 lists:filter(fun({X,Y}) ->
                             case next_cell_state({X,Y}, State) of
                                 live -> true;
@@ -56,17 +52,17 @@ tick(State) ->
 %% @private
 surrounding_dead_cells(State) ->
     DeadCells = lists:flatmap(fun({X, Y}) ->
-                lists:flatmap(fun({DX, DY}) ->
-                            case lists:member({X+DX, Y+DY}, State) of
-                                true -> [];
-                                false -> [{X+DX, Y+DY}]
-                            end
-                    end, ?MOVES())
-        end, State),
+                    lists:flatmap(fun({DX, DY}) ->
+                                case lists:member({X+DX, Y+DY}, State) of
+                                    true -> [];
+                                    false -> [{X+DX, Y+DY}]
+                                end
+                        end, ?MOVES)
+            end, State),
     sets:to_list(sets:from_list(DeadCells)).
 
 %% @private
-print_and_run(Fun) ->
+print_and_return(Fun) ->
     Result = Fun(),
     io:format("RESULT: ~p~n",[Result]),
     Result.
