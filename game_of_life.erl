@@ -1,5 +1,5 @@
 -module(game_of_life).
--compile(export_all).
+-export([start/0, start/2]).
 
 -define(STATE, [{0, 0}, {0, 1}, {1, 0}, {1, 1}]). 
 -define(MOVES, fun() ->
@@ -8,6 +8,19 @@
                 end, [{DX, DY} || DX <- [-1, 0, 1], DY <- [-1, 0, 1]])
     end).
 
+start() ->
+    loop(?STATE, 100).
+
+start(State, NoOfGenerations) ->
+    loop(State, NoOfGenerations).
+
+%% @private
+loop(_State, 0) ->
+    done;
+loop(State, Count) ->
+    loop(tick(State), Count - 1).
+
+%% @private
 neighbours({X, Y}, State) ->
     lists:foldl(fun({DX, DY}, Acc) ->
                 case lists:member({X+DX, Y+DY}, State) of
@@ -16,34 +29,45 @@ neighbours({X, Y}, State) ->
                 end
         end, 0, ?MOVES()).
 
+%% @private
 next_cell_state({X, Y}, State) ->
     case neighbours({X, Y}, State) of
         N when N < 2 -> dead;
         N when N > 3 -> dead;
-        _ -> live
+        N when N =:= 2 ->
+            case lists:member({X,Y}, State) of
+                true -> live;
+                false -> dead
+            end;
+        N when N =:= 3 -> live
     end.
 
-resurect_cell({X, Y}, State) ->
-    case neighbours({X, Y}, State) of
-        3 -> live;
-        _ -> dead
-    end.
-
+%% @private
 tick(State) ->
-    lists:filter(fun({X, Y}) ->
-                case next_cell_state({X, Y}, State) of
-                    dead -> false;
-                    live -> true
-                end
-        end, State).
+    print_and_run(fun() ->
+                lists:filter(fun({X,Y}) ->
+                            case next_cell_state({X,Y}, State) of
+                                live -> true;
+                                dead -> false
+                            end
+                    end, surrounding_dead_cells(State) ++ State)
+        end).
 
+%% @private
 surrounding_dead_cells(State) ->
-    lists:flatmap(fun({X, Y}) ->
+    DeadCells = lists:flatmap(fun({X, Y}) ->
                 lists:flatmap(fun({DX, DY}) ->
                             case lists:member({X+DX, Y+DY}, State) of
                                 true -> [];
                                 false -> [{X+DX, Y+DY}]
                             end
                     end, ?MOVES())
-        end, State).
+        end, State),
+    sets:to_list(sets:from_list(DeadCells)).
+
+%% @private
+print_and_run(Fun) ->
+    Result = Fun(),
+    io:format("RESULT: ~p~n",[Result]),
+    Result.
 
